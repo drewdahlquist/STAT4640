@@ -1,0 +1,91 @@
+---
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### a)
+
+```{r echo=FALSE}
+# create a set of values between 0 and 1 to compute the density at
+theta = seq(0,1, length=100)
+
+# data
+Y = 16
+n = 23
+# prior
+a = 4
+b = 4
+# posterior
+A = Y + a
+B = n - Y + b
+
+# beta(a,b) prior
+prior = dbeta(theta, a, b)
+
+# binomial(Y,n) likelihood, scaled up some
+likelihood = dbinom(Y, n, theta) * 24
+
+# posterior
+posterior = dbeta(theta, A, B)
+
+# plotting
+plot(theta, prior, ylab="density", type="l", col="1", ylim=c(0,6)) # prior
+lines(theta, likelihood, type="l", col="2") # likelihood
+lines(theta, posterior, type="l", col="3") # posterior
+
+# add legend
+legend("topleft", c("Prior", "Likelihood", "Posterior"), lty=c(1,1,1),col=c(1,2,3))
+```
+
+The posterior distribution of $\theta$ ~ Beta(`r A`, `r B`), the probability of success is `r A/(A+B)`.
+
+Posterior mean: `r A/(A+B)`
+
+Posterior variance: `r A*B/((A+B)^2 * (A+B+1))`
+
+Yes, there is evidence of Bayesian learning since our prior belief has been updated to reflect the new information we obtained from the collected data.
+
+### b)
+
+```{r echo=FALSE}
+# create a set of values between 0 and 1 to compute the density at
+theta = seq(0,1, length=100)
+
+# data
+Y = 16
+n = 23
+# prior
+a = 1
+b = 1
+# posterior
+A = Y + a
+B = n - Y + b
+
+# beta(a,b) prior
+prior = dbeta(theta, a, b)
+
+# binomial(Y,n) likelihood, scaled up some
+likelihood = dbinom(Y, n, theta) * 24
+
+# posterior
+posterior = dbeta(theta, A, B)
+
+# plotting
+plot(theta, prior, ylab="density", type="l", col="1", ylim=c(0,6)) # prior
+lines(theta, likelihood, type="p", col="2") # likelihood
+lines(theta, posterior, type="l", col="3") # posterior
+
+# add legend
+legend("topleft", c("Prior", "Likelihood", "Posterior"), lty=c(1,1,1),col=c(1,2,3))
+```
+
+The posterior distribution of $\theta$ ~ Beta(`r A`, `r B`), the probability of success is `r A/(A+B)`.
+
+Posterior mean: `r A/(A+B)`
+
+Posterior variance: `r A*B/((A+B)^2 * (A+B+1))`
+
+No, there is no evidence of Bayesian learning since the posterior is exactly the same as the likelihood function before we applied our prior distribution.

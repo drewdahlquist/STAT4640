@@ -1,0 +1,130 @@
+---
+title: "Homework 4"
+author: "Drew Dahlquist"
+date: "2/24/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### 1.
+
+
+
+### 2.
+
+(a)
+
+From the plot, there appears to be an approximate linear relationship between speed and distance.
+
+```{r 2a, echo=FALSE}
+plot(cars$speed, cars$dist, main="Speed vs Distance", xlab="Speed", ylab="Distance")
+```
+
+(b)
+
+The fitted line is $\hat{y} = -17.57 + 3.93x_1$. We may interpret this to mean that there is a positive relationship between speed and distance.
+
+```{r 2b, echo=FALSE}
+fit=lm(dist~speed, data=cars)
+summary(fit)
+```
+
+(c)
+
+```{r 2c, echo=FALSE}
+mu = c(0,0) # 1 x p
+omega = (100^2)*diag(2) # p x p
+x = matrix(data=c(rep(1,50),cars$speed), nrow=50) # n x p
+sigma = (15.38)^2*diag(50) # n x n
+y = cars$dist # 1 x n
+sigma.b = solve(t(x) %*% solve(sigma) %*% x + solve(omega)) # p x p
+
+post.mean = sigma.b %*% (t(x) %*% solve(sigma) %*% y + solve(omega) %*% mu) # p x 1
+post.var = sigma.b # p x p
+```
+
+Posterior mean = (`r post.mean`), posterior variance = [`r post.var`]. The posterior mean estimates for $\boldsymbol{\hat\beta}$ are within 2-3 decimal places of those in part (b), whereas the variance estimates are greatly reduced from part (b).
+
+(d)
+
+```{r 2d, message=FALSE, include=FALSE}
+require(mvtnorm)
+
+n = 100000
+sum(rmvnorm(n, mean=post.mean, sigma=post.var)[,2] < 3)/n
+```
+
+$P[\hat\beta_1 < 3] = 0.0118$. This aligns with what would be expected from our regression fit since it has a coefficient est. of 3.93 with std. err. of 0.41. The interpretation for the problem is that the distance is roughly proporation to at least 3 times the speed.
+
+(e)
+
+```{r 2e, echo=FALSE}
+library(invgamma)
+
+# likelihood
+n = 50
+y = cars$dist # 1 x n
+x = matrix(data=c(rep(1,50),cars$speed), nrow=50) # n x p
+beta = c(-17.5791, 3.9324) # p x 1
+SSE = t(y-x%*%beta)%*%(y-x%*%beta)
+
+# prior
+a = 2
+b = 2
+
+# posterior
+post.a = a+n/2
+post.b = b+SSE/2
+
+# estimates
+post.mean = (post.b)/(post.a-1)
+post.var = (post.b)^2/((post.a-1)^2*(post.a-2))
+post.cred_int = qinvgamma(c(.025,.975),post.a,post.b)
+```
+
+Estimates for posterior mean = `r post.mean`, posterior variance = `r post.var`, 95% credible interval = (`r post.cred_int`).
+
+(f)
+
+For many prior specifications, the resulting posterior distribution is very similar, having a mean around 200, about the same amount of variance, and with large overlap in credible intervals. I tried some priors (not shown) that are very informative (i.e. almost no variance) and those do shift the posterior considerably, as expected. However, most "sensible" priors I tried do not change the posterior very much, thus this model is decently robust to the choice of prior.
+
+```{r 2f, echo=FALSE}
+library(invgamma)
+
+# likelihood
+n = 50
+y = cars$dist # 1 x n
+x = matrix(data=c(rep(1,50),cars$speed), nrow=50) # n x p
+beta = c(-17.5791, 3.9324) # p x 1
+SSE = t(y-x%*%beta)%*%(y-x%*%beta)
+
+# priors
+a.0 = 2
+b.0 = 2
+a.1 = 0.001
+b.1 = 0.001
+a.2 = 4
+b.2 = 10
+
+# posteriors
+post.a.0 = a.0+n/2
+post.b.0 = b.0+SSE/2
+post.a.1 = a.1+n/2
+post.b.1 = b.1+SSE/2
+post.a.2 = a.2+n/2
+post.b.2 = b.2+SSE/2
+
+# plot
+sigma = seq(0, 500, length=1000)
+plot(sigma, dinvgamma(sigma, post.a.0, post.b.0), type="l", col="1", xlab="sigma^2", ylab="density", ylim=c(0,0.013), main="InvGamma Posteriors")
+lines(sigma, dinvgamma(sigma, post.a.1, post.b.1), type="l", col="2")
+lines(sigma, dinvgamma(sigma, post.a.2, post.b.2), type="l", col="3")
+legend("topright", c(
+  paste("a = ",a.0,", b = ",b.0, sep=""),
+  paste("a = ",a.1,", b = ",b.1, sep=""),
+  paste("a = ",a.2,", b = ",b.2, sep="")
+  ), lty=c(1,1,1), col=c(1,2,3), title="Prior params")
+```

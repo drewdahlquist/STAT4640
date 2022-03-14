@@ -1,0 +1,288 @@
+---
+title: "Homework 5"
+author: "Drew Dahlquist"
+date: "3/12/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### 1)
+
+```{r 1}
+# Load the data
+
+Y = c(2.68,1.18,-0.97,-0.98,-1.03)
+n = length(Y)
+
+# Create an empty matrix for the MCMC samples
+
+S = 25000
+samples = matrix(NA,S,2)
+colnames(samples) = c('mu', 'sigma')
+
+# Initial values
+
+mu = 10^(-100)
+sig2 = 10^(100)
+
+# prior: mu ~ N(gamma, tau), sig2 ~ InvG(a,b)
+
+gamma = 0
+tau = 100^2
+a = 0.1
+b = 0.1
+
+# Gibbs sampling
+
+for(s in 1:S) {
+  P = n/sig2 + 1/tau
+  M = sum(Y)/sig2 + gamma/tau
+  mu = rnorm(1,M/P,1/sqrt(P))
+  
+  A = n/2 + a
+  B = sum((Y-mu)^2)/2 + b
+  sig2 = 1/rgamma(1,A,B)
+  
+  samples[s,] = c(mu,sqrt(sig2))
+}
+
+# Plot the join posterior and marginal of mu
+plot(samples,xlab=expression(mu),ylab=expression(sigma))
+hist(samples[,1],xlab=expression(mu))
+
+# Posterior mean, median, and credible intervals
+apply(samples,2,mean)
+apply(samples,2,quantile,c(0.025,0.500,0.975))
+
+plot(samples[,1],type='l',xlab='Iteration',ylab=expression(mu))
+plot(samples[,2],type='l',xlab='Iteration',ylab=expression(sigma^2))
+```
+
+Setting mu = mean(Y) and sig2 = var(Y) results in almost instant convergence, and most values near those estimates have the same results. Even with very unreasonable estimates, such as mu = 10^100 and sig2 = 10^(-100), the chain still converges almost instantly. The only noticeable affects I was able to get where when both mu and sig2 were very large (10^100), but this would still require only very minor burn-in.
+
+### 2)
+
+(a)
+
+$Y_i$ ~ $Poisson(N_i\lambda_i)$
+
+$\lambda_i | \gamma$ sim $Gamma(1,\gamma)$
+
+$\gamma$ ~ $Gamma(0.001,0.001)$
+
+(b)
+
+Step 1: Select initial values for $\lambda_1$, $\lambda_2$, $\lambda_3$, $\lambda_4$, $\lambda_5$, $\lambda_6$, $\lambda_7$, and $\gamma$
+
+Then for s = 1 ... S, iterate through the following:
+
+Step 2a: $p(\lambda_1 | Y, \lambda_2, \lambda_3, \lambda_4, \lambda_5, \lambda_6, \lambda_7, \gamma)$ ~ $Gamma(Y_1+1,N_1+\gamma)$
+
+Step 2b: $p(\lambda_2 | Y, \lambda_1, \lambda_3, \lambda_4, \lambda_5, \lambda_6, \lambda_7, \gamma)$ ~ $Gamma(Y_2+1,N_2+\gamma)$
+
+Step 2c: $p(\lambda_3 | Y, \lambda_1, \lambda_2, \lambda_4, \lambda_5, \lambda_6, \lambda_7, \gamma)$ ~ $Gamma(Y_3+1,N_3+\gamma)$
+
+Step 2d: $p(\lambda_4 | Y, \lambda_1, \lambda_2, \lambda_3, \lambda_5, \lambda_6, \lambda_7, \gamma)$ ~ $Gamma(Y_4+1,N_4+\gamma)$
+
+Step 2e: $p(\lambda_5 | Y, \lambda_1, \lambda_2, \lambda_3, \lambda_4, \lambda_6, \lambda_7, \gamma)$ ~ $Gamma(Y_5+1,N_5+\gamma)$
+
+Step 2f: $p(\lambda_6 | Y, \lambda_1, \lambda_2, \lambda_3, \lambda_4, \lambda_5, \lambda_7, \gamma)$ ~ $Gamma(Y_6+1,N_6+\gamma)$
+
+Step 2g: $p(\lambda_7 | Y, \lambda_1, \lambda_2, \lambda_3, \lambda_4, \lambda_5, \lambda_6, \gamma)$ ~ $Gamma(Y_7+1,N_7+\gamma)$
+
+Step 2h: $p(\gamma | Y, \lambda_1, \lambda_2, \lambda_3, \lambda_4, \lambda_5, \lambda_6, \lambda_7)$ ~ $Gamma(7+a, \sum_{i=1}^{7}\lambda_i +b)$
+
+```{r 2b}
+# Load data
+Y = c(343,261,271,220,278,149,317)
+n = length(Y) # = 7
+N = c(58,58,57,59,60,26,59)
+
+# Create empty matrix for MCMC samples
+S = 25000
+samples = matrix(NA,S,n+1)
+colnames(samples) = c('lam1','lam2','lam3','lam4','lam5','lam6','lam7','gamma')
+
+# Initial values
+lambda = log(Y/N)
+gamma = 1/mean(lambda)
+
+# priors: lambda[i]|gamma ~ Gamma(1, gamma), gamma ~ InvG(a,b)
+a = 0.001
+b = 0.001
+
+# Gibbs sampling
+for(s in 1:S) {
+  # sample for lambda_i
+  for(i in 1:n) {
+    lambda[i] = rgamma(1,Y[i]+1,N[i]+gamma)
+  }
+  # sample for gamma
+  gamma = rgamma(1,n+a,sum(lambda)+b)
+  # record
+  samples[s,]=c(lambda,gamma)
+}
+```
+
+(c)
+
+All model parameters appear to converge almost instantly as shown by the trace plots, likely because this is a relatively simple model with all parameters highly connected to the data. Therefor, the burn-in period will be very small if anything, and we could cut out the first few hundred samples if desired.
+
+```{r 2c, echo=FALSE}
+par(mfrow=c(2,2))
+plot(samples[,1],type='l',xlab='Iteration',ylab=expression(lambda_1))
+plot(samples[,2],type='l',xlab='Iteration',ylab=expression(lambda_2))
+plot(samples[,3],type='l',xlab='Iteration',ylab=expression(lambda_3))
+plot(samples[,4],type='l',xlab='Iteration',ylab=expression(lambda_4))
+plot(samples[,5],type='l',xlab='Iteration',ylab=expression(lambda_5))
+plot(samples[,6],type='l',xlab='Iteration',ylab=expression(lambda_6))
+plot(samples[,7],type='l',xlab='Iteration',ylab=expression(lambda_7))
+plot(samples[,8],type='l',xlab='Iteration',ylab=expression(gamma))
+```
+
+(d)
+
+2015 appears to have the highest strikeout rate per game, whereas 2018 looks to have the lowest. 2015 may have been an anomaly, as the strikeout rate had a sudden drop-off and stayed pretty consistent for the 4 years after. There was a steady rise in strikeout rate form 2018 to 2020, which looks to have leveled-out in 2021. Also, 2020 has a noticeably wider confidence interval compared to all the others years, likely since so few games were played that year in comparison to the rest.
+
+```{r 2d, echo=FALSE}
+boxplot(samples[,1:n],outline=FALSE,ylab=expression(lambda),names=2015:2021)
+```
+
+(e)
+
+```{r 2e, echo=FALSE}
+stats = matrix(NA,3,n)
+colnames(stats) = c('lamb 1','lamb 2','lamb 3','lamb 4','lamb 5','lamb 6','lamb 7')
+rownames(stats) = c('Posterior mean:','2.5th Percentile:','97.5th Percentile:')
+
+for(i in 1:7){
+  stats[1,i] = mean(samples[,i])
+  stats[2:3,i] = c(quantile(samples[,i], c(.025,.975)))
+}
+
+print(stats)
+```
+
+(f)
+
+The strikeout rate in 2020 was slightly higher than in 2021, but this result likely isn't very significant because of 2020's wide 95% credible interval (which actually includes all of 2021's 95% credible interval).
+
+(g)
+
+Given the results of the hypothesis test, it seems likely that the ratio of strikeout rates for these two seasons is greater than one. Viewing the histogram of 2015/2016, the posterior mean estimate is about 1.33, and the 95% credible interval is strictly greater than 1.0.
+
+```{r 2g, echo=FALSE}
+ratio = samples[,1]/samples[,2] # 2015/2016
+hist(ratio,xlab='2015/2016')
+abline(v=mean(ratio),col="red",lwd=2)
+abline(v=c(quantile(ratio, c(.025,.975))),col="blue",lwd=2)
+legend("topright", c("Mean", "95% Cred Interval"), lty=c(1,1),col=c(2,4))
+```
+
+### 3)
+
+```{r 3, echo=FALSE}
+library(mvtnorm)
+
+# Load cars data
+dist = cars$dist
+speed = cars$speed
+n = length(speed)
+X = cbind(1,speed)
+Y = dist
+
+# Create empty matrix for MCMC samples
+S = 10000
+samples = matrix(NA,S,3)
+colnames(samples) = c('Beta0','Beta1','Sigma')
+
+# Initial values
+beta = lm(dist~speed)$coef
+sig2 = var(lm(dist~speed)$residuals)
+
+# priors: beta ~ N(0,tau I_2), sigma^2 ~ InvG(a,b)
+tau = 1000^2
+a = 0.1
+b = 0.1
+
+# Blocked Gibbs sampling
+V = diag(2)/tau
+tXX = t(X)%*%X
+tXY = t(X)%*%Y
+
+for(s in 1:S) {
+  P = tXX/sig2 + V
+  W = tXY/sig2
+  beta = rmvnorm(1,solve(P)%*%W,solve(P))
+  beta = as.vector(beta)
+  
+  A = n/2 + a
+  B = sum((Y-X%*%beta)^2)/2 + b
+  sig2 = 1/rgamma(1,A,B)
+  
+  samples[s,] = c(beta,sqrt(sig2))
+}
+```
+
+(a)
+
+For my beta vector I chose a Normal with mean 0 and standard deviation of `r sqrt(1/tau)`, and for my variance I chose an uninformative Inverse Gamma (i.e. a = b = 0.1).
+
+$\beta$ ~ $N(0, 0.001)$
+
+$\sigma$ ~ $InvGamma(0.1, 0.1)$
+
+(b)
+
+Again, all model parameters appear to converge almost instantly as shown by the trace plots. For burn-in, we could truncate the first few hundred values if desired.
+
+```{r 3b, echo=FALSE}
+plot(samples[,1],type='l',xlab='Iteration',ylab=expression(beta_0))
+plot(samples[,2],type='l',xlab='Iteration',ylab=expression(beta_1))
+plot(samples[,3],type='l',xlab='Iteration',ylab=expression(sigma^2))
+```
+
+(c)
+
+```{r 3ci, echo=FALSE}
+hist(samples[,1],xlab='Beta_0')
+```
+\newpage
+```{r 3cii, echo=FALSE}
+hist(samples[,2],xlab='Beta_1')
+```
+
+```{r 3ciii, echo=FALSE}
+hist(samples[,3],xlab='Sigma^2')
+```
+
+(d)
+
+The Bayesian estimates for the parameters are extremely similar to those obtained via least squares / maximum likelihood estimation, only being off by less than 0.5 for all parameters.
+
+```{r 3d, echo=FALSE}
+stats = matrix(NA,5,3)
+colnames(stats) = c('beta_0','beta_1','sigma^2')
+rownames(stats) = c('Post. mean:','Post. std dev:','2.5th Percentile:','97.5th Percentile:','Least Squares est.:')
+
+for(i in 1:3){
+  stats[1,i] = mean(samples[,i])
+  stats[2,i] = sd(samples[,i])
+  stats[3:4,i] = c(quantile(samples[,i], c(.025,.975)))
+}
+stats[5,1:2] = lm(dist~speed)$coef
+stats[5,3] = sqrt(var(lm(dist~speed)$residuals))
+
+print(stats)
+```
+
+(e)
+
+There is a negative correlation between $\beta_0$ and $\beta_1$. (i.e., as $\beta_0$ increases, $\beta_1$ decreases.)
+
+```{r 3e, echo=FALSE}
+plot(samples[,1],samples[,2],xlab='beta_0',ylab='beta_1',main='beta_0 vs beta_1')
+```

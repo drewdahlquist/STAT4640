@@ -1,0 +1,101 @@
+---
+title: "Homework 3"
+author: "Drew Dahlquist"
+date: "2/17/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1.a)
+
+$$\\[3in]$$
+
+Expert 2's prior is uninformative since solving for the desired mean and standard deviation yiels a = b = 17.5. 
+
+1.b)
+
+The posterior for Expert 1 is relatively unchanged given all 5 mice test positive, since it expected 0.95 probability for each mouse, whereas the posterior for Expert 2 has a greater mean and lower variance.
+
+```{r 1b, echo=FALSE}
+# create a set of values between 0 and 1 to compute the density at
+theta = seq(0,1, length=100)
+
+# data
+Y = 5
+n = 5
+
+# prior 1
+a.1 = 17.1
+b.1 = 0.9
+
+# prior 2
+a.2 = 17.5
+b.2 = 17.5
+
+# posterior 1
+A.1 = Y + a.1
+B.1 = n - Y + b.1
+
+# posterior 2
+A.2 = Y + a.2
+B.2 = n - Y + b.2
+
+# posterior 1
+posterior.1 = dbeta(theta, A.1, B.1)
+
+# posterior 2
+posterior.2 = dbeta(theta, A.2, B.2)
+
+# plotting
+plot(theta, posterior.1, main="Posteriors under each expert's prior", ylab="density", type="l", col="2", ylim=c(0,6)) # posterior 1
+lines(theta, posterior.2, type="l", col="4") # posterior 2
+
+# add legend
+legend("topleft", c("Expert 1", "Expert 2"), lty=c(1,1),col=c(2,4))
+```
+
+2.a)
+
+The Negative Binomial distribution is used to count the number of failures from independent trails with probability of success $\theta$ before recording the mth success.
+
+2.b)
+
+$$\\[1in]$$
+
+2.c)
+
+```{r 2c, echo=FALSE}
+m = 5
+Y = 10
+a = b = 1
+
+theta = seq(0,1, length=100)
+plot(theta, dbeta(theta, a+m, b+Y), main="Posterior when m = 5, Y = 10, a = b = 1", ylab="density", type="l", col="2", ylim=c(0,6))
+```
+
+    95% credible interval = (`r qbeta(c(.025,.975),a+m,b+Y)`).
+
+3)
+
+$$\\[4in]$$
+
+4.a)
+
+$$\\[.5in]$$
+
+```{r 4a, echo=FALSE}
+lambda = seq(0,5,length=500)
+
+plot(lambda, 1/sqrt(lambda), main="Plot of Jeffreys' Prior for lambda ~ Poisson", ylab="Jeffreys' Prior", type="l", col="4")
+```
+
+4.b)
+
+No, this is not a proper prior since the integral does not converge.
+
+4.c)
+
+$$\\[1in]$$
