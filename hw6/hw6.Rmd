@@ -1,0 +1,277 @@
+---
+title: "Homework 6"
+author: "Drew Dahlquist"
+date: "3/20/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1.
+
+(a)
+
+$p(\sigma^2_1 | Y, \sigma^2_2, ... \sigma^2_{10}, b)$ ~ $InvGamma(a+\frac{1}{2}, \frac{1}{2}(Y_1^2+2b))$
+
+$p(b|*)$ ~ $Gamma(1,1)$
+
+(b)
+
+Step 1: Select initial values for $\sigma^2_1$, $\sigma^2_2$, $\sigma^2_3$, $\sigma^2_4$, $\sigma^2_5$, $\sigma^2_6$, $\sigma^2_7$, $\sigma^2_8$, $\sigma^2_9$, $\sigma^2_{10}$
+
+Step 2: For s = 1 ... S, iterate through the following:
+
+Step 2a: $p(b|*)$ ~ $Gamma(1,1)$
+
+Step 2b: $p(\sigma^2_1 | Y, \sigma^2_2, ..., \sigma^2_{10}, b)$ ~ $InvGamma(a+\frac{1}{2}, \frac{1}{2}(Y_1^2+2b))$
+
+Step 2c: $p(\sigma^2_2 | Y, \sigma^2_1, \sigma^2_3, ..., \sigma_{10}^2, b)$ ~ $InvGamma(a+\frac{1}{2}, \frac{1}{2}(Y_2^2+2b))$
+
+Step 2d-k: Similar to above for $\sigma^2_3$ through $\sigma^2_{10}$.
+
+(c)
+
+```{r 1c, echo=FALSE}
+library(invgamma)
+
+# data
+n = 10
+Y = 1:10
+a = 10
+
+# create empty matrix for MCMC samples
+S = 25000
+samples = matrix(NA,S,n)
+colnames(samples) = c("sig2_1","sig2_2","sig2_3","sig2_4","sig2_5","sig2_6","sig2_7","sig2_8","sig2_9","sig2_10")
+
+# initial values
+sig2 = var(Y)
+
+# gibbs sampling
+for(s in 1:S) {
+  # sample for b ~ Gam(1,1)
+  b = rgamma(1,1,1)
+  # sample for sig2_i ~ InvGamma(a+0.5,0.5*(Y[i]^2+2*b)))
+  for(i in 1:n) {
+    sig2[i] = rinvgamma(1,a+0.5,0.5*(Y[i]^2+2*b))
+  }
+  # record
+  samples[s,]=c(sig2)
+}
+
+# plotting
+plot(density(samples[,1], from=0),type="l",main="sig2_1 Density",xlab="sig2_1",ylab="density")
+plot(density(samples[,2], from=0),type="l",main="sig2_2 Density",xlab="sig2_2",ylab="density")
+plot(density(samples[,3], from=0),type="l",main="sig2_3 Density",xlab="sig2_3",ylab="density")
+plot(density(samples[,4], from=0),type="l",main="sig2_4 Density",xlab="sig2_4",ylab="density")
+plot(density(samples[,5], from=0),type="l",main="sig2_5 Density",xlab="sig2_5",ylab="density")
+plot(density(samples[,6], from=0),type="l",main="sig2_6 Density",xlab="sig2_6",ylab="density")
+plot(density(samples[,7], from=0),type="l",main="sig2_7 Density",xlab="sig2_7",ylab="density")
+plot(density(samples[,8], from=0),type="l",main="sig2_8 Density",xlab="sig2_8",ylab="density")
+plot(density(samples[,9], from=0),type="l",main="sig2_9 Density",xlab="sig2_9",ylab="density")
+plot(density(samples[,10], from=0),type="l",main="sig2_10 Density",xlab="sig2_10",ylab="density")
+```
+
+(d)
+
+The trace plots raise questions about the convergence of the chains. They could maybe pass as a caterpillar that just got a fresh shave (i.e., no fuzz).
+
+```{r 1d, echo=FALSE}
+# data
+n = 10
+Y = 1:10
+a = 1
+
+# create empty matrix for MCMC samples
+S = 25000
+samples = matrix(NA,S,n)
+colnames(samples) = c("sig2_1","sig2_2","sig2_3","sig2_4","sig2_5","sig2_6","sig2_7","sig2_8","sig2_9","sig2_10")
+
+# initial values
+sig2 = var(Y)
+
+# gibbs sampling
+for(s in 1:S) {
+  # sample for b ~ Gam(1,1)
+  b = rgamma(1,1,1)
+  # sample for sig2_i ~ InvGamma(a+0.5,0.5*(Y[i]^2+2*b)))
+  for(i in 1:n) {
+    sig2[i] = rinvgamma(1,a+0.5,0.5*(Y[i]^2+2*b))
+  }
+  # record
+  samples[s,]=c(sig2)
+}
+
+# plotting
+plot(samples[,1],type="l",main="sig2_1 Trace Plot",xlab="Iteration",ylab="sig2_1")
+plot(samples[,2],type="l",main="sig2_2 Trace Plot",xlab="Iteration",ylab="sig2_2")
+plot(samples[,3],type="l",main="sig2_3 Trace Plot",xlab="Iteration",ylab="sig2_3")
+plot(samples[,4],type="l",main="sig2_4 Trace Plot",xlab="Iteration",ylab="sig2_4")
+plot(samples[,5],type="l",main="sig2_5 Trace Plot",xlab="Iteration",ylab="sig2_5")
+plot(samples[,6],type="l",main="sig2_6 Trace Plot",xlab="Iteration",ylab="sig2_6")
+plot(samples[,7],type="l",main="sig2_7 Trace Plot",xlab="Iteration",ylab="sig2_7")
+plot(samples[,8],type="l",main="sig2_8 Trace Plot",xlab="Iteration",ylab="sig2_8")
+plot(samples[,9],type="l",main="sig2_9 Trace Plot",xlab="Iteration",ylab="sig2_9")
+plot(samples[,10],type="l",main="sig2_10 Trace Plot",xlab="Iteration",ylab="sig2_10")
+```
+
+(e)
+
+The results obtained via JAGS (posterior density & trace plots) are identical to those obtained in (c).
+
+```{r 1ei, echo=FALSE}
+library(rjags)
+
+# specify model via model string
+n=10
+data=list(Y=1:10, n=n)
+model_string = textConnection("model{
+  a = 10
+  b ~ dgamma(1,1)
+  for(i in 1:n){
+    tau[i] ~ dgamma(a+0.5,0.5*(Y[i]^2+2*b))
+  }
+  sigma2=1/tau
+}")
+
+# initial values
+inits = list(b=1, tau=1:10)
+
+# compile model
+model = jags.model(model_string, data=data, inits=inits, n.chains=1)
+
+# burn-in
+update(model,1000,progress.bar="none")
+
+# generate posterior samples
+params = c("sigma2")
+samples = coda.samples(model, variable.names=params, n.iter=10000, progress.bar="none")
+
+# summary
+# summary(samples)
+plots = function() {
+  plot(samples)
+}
+```
+
+```{r 1eii, echo=FALSE}
+my_plot_hook = function(x, options)
+ paste("\n", knitr::hook_plot_tex(x, options), "\n")
+ knitr::knit_hooks$set(plot = my_plot_hook)
+plots()
+```
+
+(2)
+
+The figure is about as expected. The random walk with the greatest $c^2$ value jumps around the chart more, whereas the one with the lowest $c^2$ value hardly moves at all in comparison.
+
+```{r 2, echo=FALSE}
+# 25 is a good seed for a nice looking plot
+set.seed(25)
+
+# alloc matrix for samples
+S = 25000
+walks = matrix(NA,3,S)
+rownames(walks) = c("1", "2", "3")
+
+# variances
+c2.1 = 1.0
+c2.2 = 0.5
+c2.3 = 0.1
+
+# initial estimate
+walks[1,1] = rnorm(1,0,c2.1)
+walks[2,1] = rnorm(1,0,c2.2)
+walks[3,1] = rnorm(1,0,c2.3)
+
+# random walks
+for (i in 2:S) {
+  walks[1,i] = rnorm(1,walks[1,i-1],c2.1)
+  walks[2,i] = rnorm(1,walks[2,i-1],c2.2)
+  walks[3,i] = rnorm(1,walks[3,i-1],c2.3)
+}
+
+# plotting
+plot(walks[1,],type="l",col=1,ylab="Random Walk")
+lines(walks[2,],type="l",col=2)
+lines(walks[3,],type="l",col=3)
+legend("bottomright", c("c^2 = 1.0", "c^2 = 0.5", "c^2 = 0.1"), lty=c(1,1,1),col=c(1,2,3))
+```
+
+(3)
+
+```{r 3, echo=FALSE}
+library(truncnorm)
+library(MCMCpack)
+load("drive.Rdata")
+
+set.seed(23)
+
+# data
+Y = drive
+n = length(drive)
+
+# priors
+mu_0 = 300
+sig2_0 = 100^2
+a = 2
+b = 20
+
+# alloc matrix for MCMC samples
+S = 5000
+samples = matrix(NA, S, 2)
+colnames(samples) = c("mu", "sig2")
+
+# initial vals
+mu = mean(Y)
+sig2 = var(Y)
+c2 = 3
+d2 = 600
+
+# metropolis-hastings algorithm
+for(s in 1:S){
+  
+  # sample candidate
+  mu_can = rnorm(1,mu,sqrt(c2))
+  
+  # log R value, reduces to Metropolis ratio since we use random walk proposal dist
+  logR_mu = sum(dnorm(Y,mu_can,sqrt(sig2),log=TRUE)) + dnorm(mu_can,mu_0,sqrt(sig2_0),log=TRUE) - sum(dnorm(Y,mu,sqrt(sig2),log=TRUE)) - dnorm(mu,mu_0,sqrt(sig2_0),log=TRUE)
+  
+  # accept / reject
+  if(log(runif(1)) < logR_mu){
+    mu = mu_can
+  }
+  
+  # sample candidate
+  sig2_can = rtruncnorm(1,sig2,sqrt(d2),a=0,b=Inf)
+
+  # log R value
+  logR_sig2 = sum(dnorm(Y,mu,sqrt(sig2_can),log=TRUE)) + dinvgamma(sig2_can,a,b) + log(dtruncnorm(sig2,sig2_can,sqrt(d2),a=0,b=Inf)) - sum(dnorm(Y,mu,sqrt(sig2),log=TRUE)) - dinvgamma(sig2,a,b) - log(dtruncnorm(sig2_can,sig2,sqrt(d2),a=0,b=Inf))
+
+  # accept / reject
+  if(log(runif(1)) < logR_sig2){
+    sig2 = sig2_can
+  }
+  
+  # save samples
+  samples[s,] = c(mu,sig2)
+}
+```
+
+(a)
+
+$c^2$ was set to `r c2`, and $d^2$ was set to `r d2`. The acceptance rates are `r length(unique(samples[,"mu"]))/S` for $\mu$ and `r length(unique(samples[,"sig2"]))/S` for $\sigma^2$.
+
+```{r 3a, echo=FALSE}
+# trace plots
+plot(samples[,"mu"],type="l",main="mu Trace Plot",xlab="Iteration",ylab="mu")
+plot(samples[,"sig2"],type="l",main="sig2 Trace Plot",xlab="Iteration",ylab="sig2")
+```
+
+(b)
+
+95% credible interval for $\mu$ = (`r quantile(samples[,"mu"], c(.025,.975))`).
+
+95% credible interval for $\sigma^2$ = (`r quantile(samples[,"sig2"], c(.025,.975))`)
