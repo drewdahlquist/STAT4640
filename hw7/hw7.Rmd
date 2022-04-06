@@ -1,0 +1,117 @@
+---
+title: "Homework 7"
+author: "Drew Dahlquist"
+date: "4/8/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+1.
+
+```{r 1, echo=FALSE}
+library(truncnorm)
+library(MCMCpack)
+load("covid19.Rdata")
+
+set.seed(23)
+
+# data
+Y = covid19$PositiveTests
+N = covid19$TotalTests
+n = 50
+
+# priors
+a0 = 10
+b0 = 1
+
+# alloc matrix for MCMC samples
+S = 10000+1000
+samples_theta = matrix(NA, S, 50)
+colnames(samples_theta) = covid19$State
+samples_ab = matrix(NA, S, 2)
+colnames(samples_ab) = c("a", "b")
+
+# initial vals
+a = 1
+b = 1
+
+# tuning params
+c2 = 0.05
+d2 = 1
+
+# metropolis-within-gibbs algorithm
+for(s in 1:S){
+  
+  # gibbs sample for theta[i] ~ Beta(Y[i]+a, N[i]-Y[i]+b)
+  for(i in 1:50){
+    samples_theta[s,i] = rbeta(1, Y[i]+a, N[i]-Y[i]+b)
+  }
+  
+  # m-h for a
+  a_can = rtruncnorm(1,a,sqrt(c2),a=0,b=Inf)
+
+  logR_a = sum(dbeta(samples_theta[s,],a_can,b,log=T)) + dgamma(1,a0,b0,log=T) + log(dtruncnorm(a,mean=a_can,sd=sqrt(c2),a=0,b=Inf)) - sum(dbeta(samples_theta[s,],a,b,log=T)) - dgamma(1,a0,b0,log=T) - log(dtruncnorm(a_can,mean=a,sd=sqrt(c2),a=0,b=Inf))
+  
+  if(log(runif(1)) < logR_a) {
+    a = a_can
+  }
+    
+  # m-h for b
+  b_can = rtruncnorm(1,b,sqrt(d2),a=0,b=Inf)
+
+  logR_b = sum(dbeta(samples_theta[s,],a,b_can,log=T)) + dgamma(1,a0,b0,log=T) + log(dtruncnorm(b,mean=b_can,sd=sqrt(d2),a=0,b=Inf)) - sum(dbeta(samples_theta[s,],a,b,log=T)) - dgamma(1,a0,b0,log=T) - log(dtruncnorm(b_can,mean=b,sd=sqrt(d2),a=0,b=Inf))
+
+  if(log(runif(1)) < logR_b) {
+    b = b_can
+  }
+  
+  # save samples
+  samples_ab[s,] = c(a,b)
+}
+
+# burn-in. probably a better way to do this
+post_samples_theta = samples_theta[1001:11000,]
+post_samples_ab = samples_ab[1001:11000,]
+```
+
+(a)
+
+```{r 1a, echo=FALSE}
+plot(post_samples_ab[,"a"],type="l",main="a Trace Plot",xlab="Iteration",ylab="a")
+plot(post_samples_ab[,"b"],type="l",main="b Trace Plot",xlab="Iteration",ylab="b")
+plot(post_samples_theta[,"Missouri"],type="l",main="theta_Missouri Trace Plot",xlab="Iteration",ylab="Missouri")
+
+plot(density(post_samples_ab[,"a"]),type="l",main="a Density",xlab="a",ylab="Density")
+plot(density(post_samples_ab[,"b"]),type="l",main="b Density",xlab="b",ylab="Density")
+plot(density(post_samples_theta[,"Missouri"]),type="l",main="theta_Missouri Density",xlab="b",ylab="Density")
+```
+
+(b)
+
+Yes, there was Bayesian learning for both $\alpha$ ad $\beta$ as the marginal posterior densities for both have changed significantly from their marginal prior densities.
+
+(c)
+
+Posterior mean for $\alpha$ = `r mean(post_samples_ab[,"a"])`, $\beta$ = `r mean(post_samples_ab[,"b"])`, and $\theta_{Missouri}$ = `r mean(post_samples_theta[,"Missouri"])`.
+
+Posterior 95% credible intervals for $\alpha$ = (`r quantile(post_samples_ab[,"a"], c(.025,.975))`), $\beta$ = (`r quantile(post_samples_ab[,"b"], c(.025,.975))`), and $\theta_{Missouri}$ = (`r quantile(post_samples_theta[,"Missouri"], c(.025,.975))`).
+
+(d)
+
+The two positive test rates for Missouri and Kansas are statistically very similar. Both posterior medians are very close and there is significant overlap between the two ranges.
+
+```{r 1d, echo=FALSE}
+boxplot(post_samples_theta[,c("Missouri","Kansas")])
+```
+
+(e)
+
+```{r 1e, echo=FALSE}
+
+```
+
+2.
