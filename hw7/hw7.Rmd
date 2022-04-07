@@ -52,18 +52,18 @@ for(s in 1:S){
   }
   
   # m-h for a
-  a_can = rtruncnorm(1,a,sqrt(c2),a=0,b=Inf)
+  a_can = rtruncnorm(1,mean=a,sqrt(c2),a=0,b=Inf)
 
-  logR_a = sum(dbeta(samples_theta[s,],a_can,b,log=T)) + dgamma(1,a0,b0,log=T) + log(dtruncnorm(a,mean=a_can,sd=sqrt(c2),a=0,b=Inf)) - sum(dbeta(samples_theta[s,],a,b,log=T)) - dgamma(1,a0,b0,log=T) - log(dtruncnorm(a_can,mean=a,sd=sqrt(c2),a=0,b=Inf))
+  logR_a = sum(dbeta(samples_theta[s,],a_can,b,log=T)) + dgamma(a_can,a0,b0,log=T) + log(dtruncnorm(x=a,mean=a_can,sd=sqrt(c2),a=0,b=Inf)) - sum(dbeta(samples_theta[s,],a,b,log=T)) - dgamma(a,a0,b0,log=T) - log(dtruncnorm(x=a_can,mean=a,sd=sqrt(c2),a=0,b=Inf))
   
   if(log(runif(1)) < logR_a) {
     a = a_can
   }
     
   # m-h for b
-  b_can = rtruncnorm(1,b,sqrt(d2),a=0,b=Inf)
+  b_can = rtruncnorm(1,mean=b,sqrt(d2),a=0,b=Inf)
 
-  logR_b = sum(dbeta(samples_theta[s,],a,b_can,log=T)) + dgamma(1,a0,b0,log=T) + log(dtruncnorm(b,mean=b_can,sd=sqrt(d2),a=0,b=Inf)) - sum(dbeta(samples_theta[s,],a,b,log=T)) - dgamma(1,a0,b0,log=T) - log(dtruncnorm(b_can,mean=b,sd=sqrt(d2),a=0,b=Inf))
+  logR_b = sum(dbeta(samples_theta[s,],a,b_can,log=T)) + dgamma(b_can,a0,b0,log=T) + log(dtruncnorm(x=b,mean=b_can,sd=sqrt(d2),a=0,b=Inf)) - sum(dbeta(samples_theta[s,],a,b,log=T)) - dgamma(b,a0,b0,log=T) - log(dtruncnorm(x=b_can,mean=b,sd=sqrt(d2),a=0,b=Inf))
 
   if(log(runif(1)) < logR_b) {
     b = b_can
@@ -83,11 +83,11 @@ post_samples_ab = samples_ab[1001:11000,]
 ```{r 1a, echo=FALSE}
 plot(post_samples_ab[,"a"],type="l",main="a Trace Plot",xlab="Iteration",ylab="a")
 plot(post_samples_ab[,"b"],type="l",main="b Trace Plot",xlab="Iteration",ylab="b")
-plot(post_samples_theta[,"Missouri"],type="l",main="theta_Missouri Trace Plot",xlab="Iteration",ylab="Missouri")
+plot(post_samples_theta[,"Missouri"],type="l",main="theta_Missouri Trace Plot",xlab="Iteration",ylab="theta_Missouri")
 
 plot(density(post_samples_ab[,"a"]),type="l",main="a Density",xlab="a",ylab="Density")
 plot(density(post_samples_ab[,"b"]),type="l",main="b Density",xlab="b",ylab="Density")
-plot(density(post_samples_theta[,"Missouri"]),type="l",main="theta_Missouri Density",xlab="b",ylab="Density")
+plot(density(post_samples_theta[,"Missouri"]),type="l",main="theta_Missouri Density",xlab="theta_Missouri",ylab="Density")
 ```
 
 (b)
@@ -110,8 +110,131 @@ boxplot(post_samples_theta[,c("Missouri","Kansas")])
 
 (e)
 
-```{r 1e, echo=FALSE}
+The results of the hypothesis test show that $\theta_{Missouri}$/$\theta_{Kansas}$ = 1 is well within the 95% HPD credible interval and the posterior mean of the ratio is slightly above 1. Thus we shouldn't reject the null hypothesis that $\theta_{Missouri} = \theta_{Kansas}$.
 
+```{r 1e, echo=FALSE}
+library(HDInterval)
+
+ratio = post_samples_theta[,"Missouri"]/post_samples_theta[,"Kansas"]
+hist(ratio,main="Histogram of theta_Missouri/theta_Kansas",xlab="Missouri/Kansas")
+abline(v=mean(ratio),col="red",lwd=2)
+abline(v=c(hdi(ratio,credMass=0.95)),col="blue",lwd=2)
+legend("topright", c("Mean", "95% HPD Interval"), lty=c(1,1),col=c(2,4))
 ```
 
 2.
+
+```{r 2}
+library(rjags)
+
+# specify model via model string
+data=list(Y=covid19$PositiveTests, N=covid19$TotalTests, n=50)
+model_string = textConnection("model{
+  for(i in 1:n){
+    Y[i] ~ dbinom(theta[i], N[i])
+    theta[i] ~ dbeta(a,b)
+  }
+  
+  a ~ dgamma(10,1)
+  b ~ dgamma(10,1)
+}")
+
+# initial values
+inits = list(a=1, b=1)
+
+# compile model
+model = jags.model(model_string, data=data, inits=inits, n.chains=1)
+
+# burn-in
+update(model,1000,progress.bar="none")
+
+# generate posterior samples
+params = c("theta","a","b")
+samples = coda.samples(model, variable.names=params, n.iter=10000, progress.bar="none")
+```
+
+3.
+
+(a)
+
+```{r 3a, echo=FALSE}
+autocorr.plot(samples[,"a"],main="Autocorrelation of a")
+autocorr.plot(samples[,"b"],main="Autocorrelation of b")
+autocorr.plot(samples[,"theta[24]"],main="Autocorrelation of theta_Missouri")
+```
+
+(b)
+
+```{r 3b, echo=FALSE}
+autocorr(samples[,"theta[24]"],lag=c(1,5,10))
+```
+
+(c)
+
+Effective sample size of $\alpha$ = `r effectiveSize(samples[,"a"])`, $\beta$ = `r effectiveSize(samples[,"b"])`, and $\theta_{Missouri}$ = `r effectiveSize(samples[,"theta[24]"])`.
+
+From the ESS calculations there appears to be more independence in the chain for $\theta_{Missouri}$ than in the chains for $\alpha$ and $\beta$.
+
+(d)
+
+Geweke diagnostic for $\alpha$ = `r geweke.diag(samples[,"a"],frac1=0.2,frac2=0.2)`, $\beta$ = `r geweke.diag(samples[,"b"],frac1=0.2,frac2=0.2)`, and $\theta_{Missouri}$ = `r geweke.diag(samples[,"theta[24]"],frac1=0.2,frac2=0.2)`.
+
+Since the results of this diagnostic for all three parameters have a magnitude less than 2, there doesn't appear to be any issues with convergence of the chain.
+
+(e)
+
+```{r 3e, echo=FALSE}
+library(rjags)
+
+# specify model via model string
+data=list(Y=covid19$PositiveTests, N=covid19$TotalTests, n=50)
+model_string = textConnection("model{
+  for(i in 1:n){
+    Y[i] ~ dbinom(theta[i], N[i])
+    theta[i] ~ dbeta(a,b)
+  }
+  
+  a ~ dgamma(10,1)
+  b ~ dgamma(10,1)
+}")
+
+# initial values
+inits = list(a=1, b=1)
+
+# compile model
+model = jags.model(model_string, data=data, inits=inits, n.chains=3)
+
+# burn-in
+update(model,1000,progress.bar="none")
+
+# generate posterior samples
+params = c("theta","a","b")
+samples = coda.samples(model, variable.names=params, n.iter=10000, progress.bar="none")
+```
+
+The Gelman-Rubin diagnostic for $\alpha$ = `r gelman.diag(samples)$psrf["a",1]`, $\beta$ = `r gelman.diag(samples)$psrf["b",1]`, and $\theta_{Missouri}$ = `r gelman.diag(samples)$psrf["theta[24]",1]`. The multivariate Gelman-Rubin diagnostic is `r gelman.diag(samples)$mpsrf`.
+
+These results indicate perfect convergence of the chains.
+
+4.
+
+There is slightly more autocorrelation for $\alpha$ and $\beta$ in my Metropolis-within-Gibbs chains than in JAGS. This in-turn reduces the ESS for $\alpha$ and $\beta$ as well compared to JAGS. The interpretation for the Geweke diagnostic is the same.
+
+```{r 4, eval=FALSE, include=FALSE}
+myMCMC_ab=mcmc(samples_ab,start=1001,end=11000)
+myMCMC_theta=mcmc(samples_theta,start=1001,end=11000)
+
+autocorr.plot(myMCMC_ab[,"a"],main="Autocorrelation of a")
+autocorr.plot(myMCMC_ab[,"b"],main="Autocorrelation of b")
+autocorr.plot(myMCMC_theta[,"Missouri"],main="Autocorrelation of theta_Missouri")
+
+autocorr(myMCMC_theta[,"Missouri"],lag=c(1,5,10))
+
+effectiveSize(myMCMC_ab[,"a"])
+effectiveSize(myMCMC_ab[,"b"])
+effectiveSize(myMCMC_theta[,"Missouri"])
+
+geweke.diag(myMCMC_ab[,"a"],frac1=0.2,frac2=0.2)
+geweke.diag(myMCMC_ab[,"b"],frac1=0.2,frac2=0.2)
+geweke.diag(myMCMC_theta[,"Missouri"],frac1=0.2,frac2=0.2)
+```
