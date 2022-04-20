@@ -1,0 +1,208 @@
+---
+title: "Homework 8"
+author: "Drew Dahlquist"
+date: "4/21/2022"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1.
+
+(a)
+
+```{r 1a}
+load("SKorea_Covid19.Rdata")
+
+set.seed(1)
+
+# data
+Y = SKorea_Covid19$birth_year
+n = length(Y)
+y_bar = mean(Y)
+sig2_hat = sum((Y-mean(Y))^2)/n
+
+# sample for mu|Y ~ t_n(y_bar, sig2_hat/2)
+samples = y_bar + sqrt(sig2_hat/n) * rt(10000, df=n)
+```
+
+The null hypothesis is that the average birth year of coronavirus patients is equal to the median age of all South Korean citizens. The alternative hypothesis is that the average birth year of coronavirus patients is greater than the median age of all South Korean citizens.
+
+95% credible interval = (`r quantile(samples, c(0.025, 0.0975))`)
+
+P(birth_year > 1979.5) = `r mean(samples > 1979.5)`
+
+From the results of the hypothesis test, we can conclude that the average birth year of coronavirus patients is not equal to the median age of all South Korean citizens.
+
+(b)
+
+```{r 1b}
+library(dplyr)
+
+load("SKorea_Covid19.Rdata")
+
+set.seed(1)
+
+# data
+male = filter(SKorea_Covid19, sex == "male")$birth_year
+n1 = length(male)
+ybar1 = mean(male)
+sig21 = sum((male-mean(male))^2)/n1
+female = filter(SKorea_Covid19, sex == "female")$birth_year
+n2 = length(female)
+ybar2 = mean(female)
+sig22 = sum((female-mean(female))^2)/n2
+
+# sampling
+mu1 = ybar1 + sqrt(sig21/n1) * rt(10000, df=n1) # male
+mu2 = ybar2 + sqrt(sig22/n2) * rt(10000, df=n2) # female
+delta = mu1 - mu2
+```
+
+The null hypothesis is that the average age of infected individuals is the same for men and women. The alternative hypothesis is that the average age of infected men is greater than the average age of infected women (i.e., delta > 0).
+
+95% credible interval = (`r quantile(delta, c(0.025, 0.0975))`)
+
+P($\delta$ > 0) = `r mean(delta > 0)`
+
+From the results of the hypothesis test, we can conclude that the average age of infected men is greater than the average age of infected women.
+
+2.
+
+```{r 2-setup}
+library(rjags)
+
+load("lakeN.Rdata")
+
+# logTN as response, all else as covariates
+Y = lakeN[,1]
+X = lakeN[,-1]
+names = colnames(X)
+
+# remove missing
+junk = is.na(rowSums(X))
+Y = Y[!junk]
+X = X[!junk,]
+
+# standardize since we're doing penalized regression
+X = as.matrix(scale(X))
+
+# data into JAGS format
+n = length(Y)
+p = ncol(X)
+data = list(Y=Y,X=X,n=n,p=p)
+params = c("beta")
+burn = 10000
+n.iter = 20000
+thin = 10
+n.chains = 2
+```
+
+(a)
+
+```{r 2a}
+# specify model via model string
+model_string.a = textConnection("model{
+  # Likelihood
+  for(i in 1:n) {
+    Y[i] ~ dnorm(alpha+inprod(X[i,],beta[]),taue)
+  }
+  # Priors
+  for(j in 1:p) {
+    beta[j] ~ dnorm(0,0.001)
+  }
+  alpha ~ dnorm(0,0.001)
+  taue ~ dgamma(0.1,0.1)
+}")
+
+# compile model
+model.a = jags.model(model_string.a, data=data, n.chains=n.chains, quiet=T)
+
+# burn-in
+update(model.a,burn,progress.bar="none")
+
+# generate posterior samples
+samples.a = coda.samples(model.a, variable.names=params, n.iter=n.iter, thin=thin, progress.bar="none")
+```
+
+(b)
+
+```{r 2b}
+# specify model via model string
+model_string.b = textConnection("model{
+  # Likelihood
+  for(i in 1:n) {
+    Y[i] ~ dnorm(alpha+inprod(X[i,],beta[]),taue)
+  }
+  # Priors
+  for(j in 1:p) {
+    beta[j] ~ dnorm(0,taue*taub)
+  }
+  alpha ~ dnorm(0,0.001)
+  taue ~ dgamma(0.1,0.1)
+  taub ~ dgamma(0.1,0.1)
+}")
+
+# compile model
+model.b = jags.model(model_string.b, data=data, n.chains=n.chains, quiet=T)
+
+# burn-in
+update(model.b,burn,progress.bar="none")
+
+# generate posterior samples
+samples.b = coda.samples(model.b, variable.names=params, n.iter=n.iter, thin=thin, progress.bar="none")
+```
+
+(c)
+
+```{r 2c}
+# specify model via model string
+model_string.c = textConnection("model{
+  # Likelihood
+  for(i in 1:n) {
+    Y[i] ~ dnorm(alpha+inprod(X[i,],beta[]),taue)
+  }
+  # Priors
+  for(j in 1:p) {
+    beta[j] ~ ddexp(0,taue*taub)
+  }
+  alpha ~ dnorm(0,0.001)
+  taue ~ dgamma(0.1,0.1)
+  taub ~ dgamma(0.1,0.1)
+}")
+
+# compile model
+model.c = jags.model(model_string.c, data=data, n.chains=n.chains, quiet=T)
+
+# burn-in
+update(model.c,burn,progress.bar="none")
+
+# generate posterior samples
+samples.c = coda.samples(model.c, variable.names=params, n.iter=n.iter, thin=thin, progress.bar="none")
+```
+
+```{r 2-compare}
+for(j in 1:p) {
+  # collect samples from chains
+  s1 = c(samples.a[[1]][,j],samples.a[[2]][,j])
+  s2 = c(samples.b[[1]][,j],samples.b[[2]][,j])
+  s3 = c(samples.c[[1]][,j],samples.c[[2]][,j])
+  
+  # smooth density est for each prior
+  d1 = density(s1)
+  d2 = density(s2)
+  d3 = density(s3)
+  
+  # plot density est
+  mx = max(c(d1$y, d2$y, d3$y))
+  
+  plot(d1$x,d1$y,type="l",ylim=c(0,mx),xlab=expression(beta),ylab="Posterior density",main=names[j])
+  lines(d2$x,d2$y,lty=2)
+  lines(d3$x,d3$y,lty=3)
+  abline(v=0)
+}
+```
+
+Since $n$ >> $p$, none of the priors have much of an effect on fitting the models. In all three models, `rowcrop`, `forest`, and `maxdepth` are the 3 most important predictors.
